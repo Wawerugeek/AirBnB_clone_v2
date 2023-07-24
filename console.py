@@ -2,10 +2,8 @@
 """ Console Module """
 import cmd
 import sys
-import shlex
-import json
-from models import storage
 from models.base_model import BaseModel
+from models.__init__ import storage
 from models.user import User
 from models.place import Place
 from models.state import State
@@ -116,37 +114,25 @@ class HBNBCommand(cmd.Cmd):
         pass
 
     def do_create(self, args):
-        """Create an object of any class"""
-        if not args:
+        """ Create an object of any class"""
+        try:
+            if not args:
+                raise SyntaxError()
+            arg_list = args.split(" ")
+            kw = {}
+            for arg in arg_list[1:]:
+                arg_splited = arg.split("=")
+                arg_splited[1] = eval(arg_splited[1])
+                if type(arg_splited[1]) is str:
+                    arg_splited[1] = arg_splited[1].replace("_", " ").replace('"', '\\"')
+                kw[arg_splited[0]] = arg_splited[1]
+        except SyntaxError:
             print("** class name missing **")
-            return
-        args_list = args.split()
-        class_name = args_list[0]
-        if class_name not in HBNBCommand.classes:
+        except NameError:
             print("** class doesn't exist **")
-            return
-        param_dict = {}
-        for arg in args_list[1:]:
-            try:
-                key, value = arg.split('=')
-                value = value.strip()
-                if value.startswith('"') and value.endswith('"'):
-                    # String value
-                    value = value[1:-1].replace('_', ' ')
-                elif '.' in value:
-                    # Float value
-                    value = float(value)
-                else:
-                    # Integer value
-                    value = int(value)
-                    param_dict[key] = value
-            except ValueError:
-                # Skip parameter if it doesn't fit the required format
-                continue
-        new_instance = HBNBCommand.classes[class_name](**param_dict)
-        storage.save()
+        new_instance = HBNBCommand.classes[arg_list[0]](**kw)
+        new_instance.save()
         print(new_instance.id)
-        storage.save()
 
     def help_create(self):
         """ Help information for the create method """
@@ -221,21 +207,18 @@ class HBNBCommand(cmd.Cmd):
 
     def do_all(self, args):
         """ Shows all objects, or all objects of a class"""
-        args = args.split(" ")
         print_list = []
-        objects = storage.all(args[0])
 
-        try:
-            if args[0] != "":
-                models.classes[args[0]]
-        except (KeyError, NameError):
-            print("** class doesn't exist **")
-            return
-        try:
-            for key, val in objects.items():
-                print_list.append(val)
-        except:
-            pass
+        if args:
+            args = args.split(' ')[0]  # remove possible trailing args
+            if args not in HBNBCommand.classes:
+                print("** class doesn't exist **")
+                return
+            for k, v in storage.all(HBNBCommand.classes[args]).items():
+                print_list.append(str(v))
+        else:
+            for k, v in storage.all().items():
+                print_list.append(str(v))
         print(print_list)
 
     def help_all(self):
